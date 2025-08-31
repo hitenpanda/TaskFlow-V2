@@ -892,3 +892,130 @@
                     this.render();
                 }
             }
+
+            // Add this render method to display todos
+            render() {
+                const container = document.getElementById('todos-container');
+                container.innerHTML = '';
+
+                // Filter and search logic
+                let filtered = this.todos;
+                if (this.currentFilter === 'pending') {
+                    filtered = filtered.filter(t => !t.completed);
+                } else if (this.currentFilter === 'completed') {
+                    filtered = filtered.filter(t => t.completed);
+                } else if (this.currentFilter === 'high') {
+                    filtered = filtered.filter(t => t.priority === 'high');
+                } else if (this.currentFilter === 'overdue') {
+                    const today = new Date().toISOString().slice(0, 10);
+                    filtered = filtered.filter(t => !t.completed && t.dueDate && t.dueDate < today);
+                }
+                if (this.searchTerm) {
+                    filtered = filtered.filter(t => t.text.toLowerCase().includes(this.searchTerm.toLowerCase()));
+                }
+
+                if (filtered.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="emoji">📝</div>
+                            <div>No tasks found. Add a new one!</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                filtered.forEach(todo => {
+                    const isOverdue = !todo.completed && todo.dueDate && todo.dueDate < new Date().toISOString().slice(0, 10);
+                    const item = document.createElement('div');
+                    item.className = 'todo-item' + (todo.completed ? ' completed' : '') + (isOverdue ? ' overdue' : '');
+                    item.innerHTML = `
+                        <div class="todo-main">
+                            <div class="todo-checkbox${todo.completed ? ' checked' : ''}" data-id="${todo.id}"></div>
+                            <div class="todo-content">
+                                <div class="todo-text${todo.completed ? ' completed' : ''}${this.editingId === todo.id ? ' editing' : ''}">${todo.text}</div>
+                                <input class="todo-edit-input${this.editingId === todo.id ? ' active' : ''}" type="text" value="${todo.text}">
+                                <div class="todo-meta">
+                                    <span class="priority-badge priority-${todo.priority}">${todo.priority.charAt(0).toUpperCase() + todo.priority.slice(1)}</span>
+                                    <span class="category-badge">${todo.category.charAt(0).toUpperCase() + todo.category.slice(1)}</span>
+                                    ${todo.dueDate ? `<span class="due-date">📅 ${todo.dueDate}</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="todo-actions">
+                                <button class="action-btn edit-btn" data-id="${todo.id}">✏️</button>
+                                <button class="action-btn delete-btn" data-id="${todo.id}">🗑️</button>
+                            </div>
+                        </div>
+                    `;
+                    // Checkbox toggle
+                    item.querySelector('.todo-checkbox').addEventListener('click', () => this.toggleTodo(todo.id));
+                    // Delete
+                    item.querySelector('.delete-btn').addEventListener('click', () => this.deleteTodo(todo.id));
+                    // Edit
+                    item.querySelector('.edit-btn').addEventListener('click', () => this.startEdit(todo.id));
+                    // Edit input
+                    const editInput = item.querySelector('.todo-edit-input');
+                    if (editInput) {
+                        editInput.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter') {
+                                this.saveEdit(todo.id, editInput.value);
+                            } else if (e.key === 'Escape') {
+                                this.editingId = null;
+                                this.render();
+                            }
+                        });
+                        if (this.editingId === todo.id) {
+                            setTimeout(() => editInput.focus(), 0);
+                        }
+                    }
+                    container.appendChild(item);
+                });
+            }
+
+            updateStats() {
+                const totalCount = this.todos.length;
+                const completedCount = this.todos.filter(t => t.completed).length;
+                const pendingCount = this.todos.filter(t => !t.completed).length;
+                const overdueCount = this.todos.filter(t => !t.completed && t.dueDate && t.dueDate < new Date().toISOString().slice(0, 10)).length;
+
+                document.getElementById('total-count').innerText = totalCount;
+                document.getElementById('completed-count').innerText = completedCount;
+                document.getElementById('pending-count').innerText = pendingCount;
+                document.getElementById('overdue-count').innerText = overdueCount;
+
+                const progress = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
+                document.getElementById('progress-fill').style.width = `${progress}%`;
+                document.getElementById('progress-text').innerText = `${progress}% Complete`;
+            }
+
+            showNotification(message) {
+                const notification = document.getElementById('notification');
+                const notificationText = document.getElementById('notification-text');
+                notificationText.innerText = message;
+                notification.classList.add('show');
+
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 3000);
+            }
+
+            completeAll() {
+                const allCompleted = this.todos.every(t => t.completed);
+                this.todos.forEach(t => t.completed = !allCompleted);
+                this.render();
+                this.updateStats();
+                this.showNotification(allCompleted ? 'All tasks marked as pending' : 'All tasks completed! 🎉');
+            }
+
+            clearCompleted() {
+                this.todos = this.todos.filter(t => !t.completed);
+                this.render();
+                this.updateStats();
+                this.showNotification('Completed tasks cleared 🗑️');
+            }
+        }
+
+        // At the end of the script, instantiate the app
+        new TodoApp();
+    </script>
+</body>
+</html>
